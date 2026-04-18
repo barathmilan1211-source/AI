@@ -3,11 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Milán AI - Mistral Motor</title>
+    <title>Milán AI - Mistral & Spotify</title>
     <style>
         :root { --accent: #10b981; --bg: #020617; }
         body { background: var(--bg); color: white; font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; overflow: hidden; }
         
+        /* Az interaktív gömb stílusa */
         .milan-orb { 
             width: 150px; height: 150px; border-radius: 50%; 
             background: radial-gradient(circle, var(--accent) 0%, #000 85%); 
@@ -21,6 +22,7 @@
         .listening { transform: scale(1.1); box-shadow: 0 0 60px var(--accent); animation: pulse 1s infinite; }
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
 
+        /* Válasz doboz */
         #res-box { 
             margin-top: 30px; padding: 25px; width: 85%; max-width: 600px; 
             background: rgba(255,255,255,0.05); border-radius: 20px; 
@@ -35,16 +37,19 @@
 
     <div class="milan-orb" id="orb">M</div>
     <div id="status">KATTINTS ÉS BESZÉLJ</div>
-    <div id="res-box">Szia Milán! A Hugging Face motor beizzítva. Mondj valamit!</div>
+    <div id="res-box">Szia Milán! Készen állok a parancsaidra.</div>
 
     <script>
-        // A Te Hugging Face Tokened
-        const HF_TOKEN = "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"; 
+        // --- KONFIGURÁCIÓ ---
+        const HF_TOKEN = "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"; // A te új Hugging Face tokened
+        const JOIN_KEY = "37fb0c375bfc4db18eea3d9148f7200e";
+        const DEVICE_ID = "52f9bb814cc24dba8457407666fd1464";
         
         const orb = document.getElementById('orb');
         const resBox = document.getElementById('res-box');
         const statusTxt = document.getElementById('status');
         
+        // Beszédérzékelés beállítása
         const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
         recognition.lang = 'hu-HU';
 
@@ -58,11 +63,23 @@
 
         recognition.onresult = async (event) => {
             const userSpeech = event.results[0][0].transcript;
+            const textLower = userSpeech.toLowerCase();
             orb.classList.remove('listening');
             resBox.innerText = "Gondolkodom...";
 
+            // 1. SPOTIFY VEZÉRLÉS ELLENŐRZÉSE
+            if (textLower.includes("játszd le") || textLower.includes("indítsd el")) {
+                const song = userSpeech.replace(/játszd le a|indítsd el a|milán/gi, "").trim();
+                const spotifyUri = `spotify:search:${encodeURIComponent(song)}`;
+                const joinUrl = `https://joinjoaomgcd.appspot.com/_ah/api/messaging/v1/sendPush?url=${encodeURIComponent(spotifyUri)}&text=${encodeURIComponent("Play: " + song)}&app=Spotify&deviceId=${DEVICE_ID}&apikey=${JOIN_KEY}`;
+                
+                fetch(joinUrl, { mode: 'no-cors' });
+                speak("Rendben Milán, indítom a Spotify-on: " + song);
+                return; // Ha zene indítás van, nem küldjük tovább az AI-nak
+            }
+
+            // 2. AI VÁLASZ (MISTRAL MOTOR)
             try {
-                // A Mistral-7B modellt hívjuk, ami nagyon jó magyarul
                 const response = await fetch("https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2", {
                     method: "POST",
                     headers: {
@@ -70,30 +87,36 @@
                         "Content-Type": "application/json"
                     },
                     body: JSON.stringify({
-                        inputs: `[INST] Te egy kedves magyar asszisztens vagy. Válaszolj Milánnak röviden: ${userSpeech} [/INST]`,
+                        inputs: `[INST] Te egy kedves magyar asszisztens vagy. Válaszolj Milánnak röviden, maximum két mondatban: ${userSpeech} [/INST]`,
                         parameters: { max_new_tokens: 150, return_full_text: false }
                     })
                 });
 
                 const data = await response.json();
                 
-                // Válasz kinyerése
-                let reply = "";
-                if (Array.isArray(data) && data[0].generated_text) {
-                    reply = data[0].generated_text.trim();
-                } else if (data.error) {
-                    reply = "Az AI éppen ébredezik, próbáld meg 10 másodperc múlva!";
+                // Ha a modell éppen töltődik (ingyenes verzió sajátossága)
+                if (data.error && data.estimated_time) {
+                    const waitTime = Math.round(data.estimated_time);
+                    resBox.innerText = `Az AI motor éppen ébredezik... Kérlek várj ${waitTime} másodpercet és próbáld újra!`;
+                    return;
                 }
 
+                if (data.error) {
+                    resBox.innerText = "Hiba az AI válaszában. Próbáld újra!";
+                    return;
+                }
+
+                let reply = data[0].generated_text.trim();
                 speak(reply);
 
             } catch (e) {
-                resBox.innerText = "Hiba történt a kapcsolódáskor.";
+                resBox.innerText = "Kapcsolódási hiba történt. Ellenőrizd az internetet!";
                 console.error(e);
             }
             statusTxt.innerText = "KATTINTS ÉS BESZÉLJ";
         };
 
+        // Beszéd funkció (Text-to-Speech)
         function speak(text) {
             resBox.innerText = text;
             const utter = new SpeechSynthesisUtterance(text);
