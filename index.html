@@ -20,8 +20,8 @@
 
     <script>
         const API_KEY = "AIzaSyARQXqOA6g6I59O8O2Lst3UjH8ymWMjcQI";
-        // A legfrissebb URL, ami HTTPS környezetben működni fog
-        const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
+        // Ha a gemini-1.5-flash nem megy, cseréld erre:
+        const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${API_KEY}`;
 
         const ball = document.getElementById('ball');
         const status = document.getElementById('status');
