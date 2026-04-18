@@ -3,147 +3,97 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Milán OS v1.0</title>
+    <title>Milán Intelligent Assistant</title>
     <style>
-        :root {
-            --bg-color: #0f172a;
-            --accent-color: #1db954; /* Spotify zöld */
-        }
-        body {
-            background: var(--bg-color);
-            color: white;
-            font-family: 'Inter', sans-serif;
-            margin: 0;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
-        }
-        /* AI Golyó Dizájn */
+        body { background: #020617; color: #f8fafc; font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+        
+        /* Pulzáló AI mag */
         .ai-core {
-            width: 150px;
-            height: 150px;
-            border-radius: 50%;
-            background: radial-gradient(circle, var(--accent-color), #000);
-            box-shadow: 0 0 50px rgba(29, 185, 84, 0.4);
-            cursor: pointer;
-            transition: 0.3s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 3rem;
-            border: 2px solid rgba(255,255,255,0.1);
+            width: 140px; height: 140px; border-radius: 50%;
+            background: conic-gradient(#1db954, #38bdf8, #1db954);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 60px; cursor: pointer; position: relative;
+            transition: 0.5s; box-shadow: 0 0 30px rgba(56, 189, 248, 0.2);
         }
-        .ai-core:hover { transform: scale(1.05); box-shadow: 0 0 80px rgba(29, 185, 84, 0.6); }
-        .ai-core.listening { animation: pulse 1s infinite; border: 2px solid white; }
+        
+        .thinking { animation: rotate 2s linear infinite; box-shadow: 0 0 60px #38bdf8; }
+        @keyframes rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
-        @keyframes pulse {
-            0% { transform: scale(1); box-shadow: 0 0 40px var(--accent-color); }
-            50% { transform: scale(1.1); box-shadow: 0 0 90px var(--accent-color); }
-            100% { transform: scale(1); box-shadow: 0 0 40px var(--accent-color); }
+        #response-text {
+            margin-top: 30px; padding: 20px; border-radius: 15px;
+            background: rgba(255,255,255,0.05); width: 80%;
+            min-height: 80px; text-align: center; font-size: 1.2rem;
+            border-left: 4px solid #38bdf8;
         }
-
-        #chat-bubble {
-            margin-top: 20px;
-            background: rgba(255,255,255,0.1);
-            padding: 15px 25px;
-            border-radius: 20px;
-            backdrop-filter: blur(10px);
-            max-width: 80%;
-            text-align: center;
-            font-size: 1.2rem;
-        }
-
-        .dashboard {
-            margin-top: 40px;
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 20px;
-        }
-        .card {
-            background: rgba(255,255,255,0.05);
-            padding: 20px;
-            border-radius: 15px;
-            text-align: center;
-            cursor: pointer;
-            transition: 0.2s;
-            border: 1px solid rgba(255,255,255,0.1);
-        }
-        .card:hover { background: rgba(255,255,255,0.15); }
     </style>
 </head>
 <body>
 
-    <div class="ai-core" id="milanAi">M</div>
-    <div id="chat-bubble">Szia Milán! Kattints rám és mondd: "Indítsd el a..."</div>
-
-    <div class="dashboard">
-        <div class="card" onclick="window.location.href='https://github.com'">💻 GitHub</div>
-        <div class="card" onclick="window.location.href='https://spotify.com'">🎵 Web Spotify</div>
-        <div class="card" onclick="location.reload()">🔄 Frissítés</div>
-    </div>
+    <div class="ai-core" id="aiBtn">M</div>
+    <div id="status">Koppints a beszédhez</div>
+    <div id="response-text">Szia Milán! Én egy valódi AI vagyok. Kérdezz tőlem bármit, vagy kérj zenét!</div>
 
     <script>
-        const API_KEY = "37fb0c375bfc4db18eea3d9148f7200e";
-        const DEVICE_ID = "52f9bb814cc24dba8457407666fd1464";
+        // --- KONFIGURÁCIÓ ---
+        const JOIN_API_KEY = "37fb0c375bfc4db18eea3d9148f7200e";
+        const JOIN_DEVICE_ID = "52f9bb814cc24dba8457407666fd1464";
+        // Ide illesztheted majd a Gemini vagy más AI kulcsodat
+        const AI_API_URL = "https://api-inference.huggingface.co/models/facebook/blenderbot-400M-distill"; 
 
-        const core = document.getElementById('milanAi');
-        const bubble = document.getElementById('chat-bubble');
-
-        // Hangfelismerés setup
+        const aiBtn = document.getElementById('aiBtn');
+        const respDisplay = document.getElementById('response-text');
+        
         const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
         recognition.lang = 'hu-HU';
-        recognition.continuous = true;
 
-        core.onclick = () => {
+        aiBtn.onclick = () => {
             recognition.start();
-            core.classList.add('listening');
-            bubble.innerText = "Figyelek...";
+            aiBtn.classList.add('thinking');
+            document.getElementById('status').innerText = "Hallgatom a kérdésed...";
         };
 
-        recognition.onresult = (event) => {
-            const msg = event.results[event.results.length - 1][0].transcript.toLowerCase();
+        recognition.onresult = async (event) => {
+            const userSpeech = event.results[0][0].transcript;
+            respDisplay.innerText = "Gondolkodom...";
             
-            if (msg.includes("milán") || msg.includes("milan")) {
-                const command = msg.replace(/milán|milan/g, "").trim();
-                handleCommand(command);
+            // 1. Megnézzük, zenét akar-e (Helyi logika)
+            if (userSpeech.toLowerCase().includes("játszd le") || userSpeech.toLowerCase().includes("indítsd el")) {
+                const song = userSpeech.toLowerCase().replace(/játszd le a|indítsd el a|milán/g, "").trim();
+                playSpotify(song);
+                return;
             }
+
+            // 2. Ha nem zene, küldjük az AI-nak (API hívás)
+            const aiAnswer = await askTheAI(userSpeech);
+            speak(aiAnswer);
         };
 
-        function handleCommand(cmd) {
-            if (cmd.includes("indítsd el a") || cmd.includes("játszd le a")) {
-                const song = cmd.replace(/indítsd el a|játszd le a/g, "").trim();
-                playMusic(song);
-            } else if (cmd.includes("idő")) {
-                say("A pontos idő: " + new Date().toLocaleTimeString('hu-HU'));
-            } else {
-                say("Ezt nem értem, de itt vagyok!");
-            }
-        }
-
-        async function playMusic(songName) {
-            const spotifyUri = `spotify:search:${encodeURIComponent(songName)}`;
-            const url = `https://joinjoaomgcd.appspot.com/_ah/api/messaging/v1/sendPush?url=${encodeURIComponent(spotifyUri)}&text=${encodeURIComponent("play " + songName)}&app=Spotify&deviceId=${DEVICE_ID}&apikey=${API_KEY}`;
-            
+        // --- AZ AI AGYA (API HÍVÁS) ---
+        async function askTheAI(question) {
             try {
-                await fetch(url, { mode: 'no-cors' });
-                say("Rendben Milán, indítom a " + songName + " dalt a telefonodon!");
+                // Itt egy ingyenes AI modellt hívunk meg (példa)
+                // Milán, ide jönne a valódi API kulcsos hívásod
+                return "Szia Milán! Azt kérdezted, hogy: " + question + ". Ez egy izgalmas kérdés, de még be kell kötnöd a Gemini API kulcsodat, hogy pontosan válaszolhassak!";
             } catch (e) {
-                say("Hiba történt a küldéskor.");
+                return "Hiba történt az AI agyam elérésekor.";
             }
         }
 
-        function say(text) {
-            bubble.innerText = text;
+        async function playSpotify(song) {
+            const spotifyUri = `spotify:search:${encodeURIComponent(song)}`;
+            const url = `https://joinjoaomgcd.appspot.com/_ah/api/messaging/v1/sendPush?url=${encodeURIComponent(spotifyUri)}&text=${encodeURIComponent("play " + song)}&app=Spotify&deviceId=${JOIN_DEVICE_ID}&apikey=${JOIN_API_KEY}`;
+            await fetch(url, { mode: 'no-cors' });
+            speak("Rendben Milán, indítom a Spotify-on a következőt: " + song);
+        }
+
+        function speak(text) {
+            respDisplay.innerText = text;
+            aiBtn.classList.remove('thinking');
             const synth = window.speechSynthesis;
             const utter = new SpeechSynthesisUtterance(text);
             utter.lang = 'hu-HU';
             synth.speak(utter);
-            core.classList.remove('listening');
         }
-
-        recognition.onend = () => { core.classList.remove('listening'); };
     </script>
 </body>
 </html>
