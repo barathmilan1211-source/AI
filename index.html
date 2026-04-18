@@ -2,39 +2,46 @@
 <html lang="hu">
 <head>
     <meta charset="UTF-8">
-    <title>Milán AI - GitHub Verzió</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Milán AI Asszisztens</title>
     <style>
-        body { background: #0f172a; color: white; font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; }
-        .milan-ball { width: 160px; height: 160px; border-radius: 50%; background: #0ea5e9; display: flex; align-items: center; justify-content: center; font-size: 70px; cursor: pointer; box-shadow: 0 0 30px #0ea5e9; transition: 0.4s; }
+        body { background: #0f172a; color: white; font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; overflow: hidden; }
+        .milan-ball { width: 170px; height: 170px; border-radius: 50%; background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%); display: flex; align-items: center; justify-content: center; font-size: 70px; cursor: pointer; box-shadow: 0 0 30px rgba(14, 165, 233, 0.4); transition: 0.4s; user-select: none; }
         .active { transform: scale(1.1); box-shadow: 0 0 60px #38bdf8; background: #38bdf8; animation: pulse 1.5s infinite; }
-        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }
-        #status { margin-top: 30px; font-size: 1.2rem; color: #94a3b8; text-align: center; }
-        #chat { margin-top: 20px; color: #38bdf8; font-style: italic; text-align: center; max-width: 80%; font-size: 1.3rem; }
+        @keyframes pulse { 0% { transform: scale(1.1); opacity: 1; } 50% { transform: scale(1.15); opacity: 0.8; } 100% { transform: scale(1.1); opacity: 1; } }
+        #status { margin-top: 30px; font-size: 1.2rem; color: #94a3b8; text-align: center; height: 25px; }
+        #chat { margin-top: 20px; color: #38bdf8; font-style: italic; text-align: center; max-width: 85%; font-size: 1.3rem; min-height: 60px; }
+        .hint { margin-top: 40px; font-size: 0.8rem; color: #475569; }
     </style>
 </head>
 <body>
 
     <div class="milan-ball" id="ball">M</div>
-    <p id="status">Kattints az M-re (GitHub Pages üzemmód)</p>
+    <p id="status">Kattints az M-re a kezdéshez!</p>
     <div id="chat"></div>
+    <p class="hint">Mondd: "Hé Milán, mennyi az idő?"</p>
 
     <script>
+        // BEÁLLÍTÁSOK
         const API_KEY = "AIzaSyARQXqOA6g6I59O8O2Lst3UjH8ymWMjcQI";
-        // Ha a gemini-1.5-flash nem megy, cseréld erre:
-        const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${API_KEY}`;
+        const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
 
         const ball = document.getElementById('ball');
         const status = document.getElementById('status');
         const chat = document.getElementById('chat');
 
+        // Beszédfelismerés inicializálása
         const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
         recognition.lang = 'hu-HU';
         recognition.continuous = true;
+        recognition.interimResults = false;
 
         ball.onclick = () => {
-            recognition.start();
-            status.innerText = "Hallgatlak, Milán!";
-            ball.innerText = "🎤";
+            try {
+                recognition.start();
+                status.innerText = "Figyelek rád, Milán!";
+                ball.innerText = "🎤";
+            } catch(e) { console.log("A mikrofon már fut."); }
         };
 
         recognition.onresult = async (event) => {
@@ -42,39 +49,64 @@
             console.log("Hallottam:", text);
 
             if (text.includes("milán") || text.includes("milan")) {
-                status.innerText = "Milán gondolkodik...";
+                status.innerText = "Gondolkodom...";
                 ball.classList.add('active');
                 
                 const question = text.replace(/milán|milan/g, "").trim();
                 
-                if (question.length > 2) {
-                    await hivasGemini(question);
-                } else {
-                    beszelj("Igen, Milán? Hallgatlak!");
+                // 1. Megpróbáljuk a felhő alapú AI-t
+                const siker = await hivasGemini(question);
+                
+                // 2. Ha az AI nem válaszol, a helyi logika lép életbe
+                if (!siker) {
+                    vészhelyzetiVálasz(question);
                 }
             }
         };
 
         async function hivasGemini(prompt) {
+            if (prompt.length < 2) return false;
             try {
                 const response = await fetch(API_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        contents: [{ parts: [{ text: `Te Milán vagy, egy magyar AI asszisztens. Válaszolj röviden a gazdádnak, Milánnak: ${prompt}` }] }]
+                        contents: [{ parts: [{ text: `Te Milán AI vagy, rövid 1 mondatos választ adj magyarul: ${prompt}` }] }]
                     })
                 });
+
+                if (!response.ok) return false;
 
                 const data = await response.json();
                 if (data.candidates && data.candidates[0].content) {
                     beszelj(data.candidates[0].content.parts[0].text);
-                } else {
-                    beszelj("Hiba történt a válaszadás közben.");
+                    return true;
                 }
+                return false;
             } catch (e) {
-                console.error(e);
-                beszelj("Hálózati hiba az API hívásakor.");
+                console.error("API hiba, váltás offline módra.");
+                return false;
             }
+        }
+
+        function vészhelyzetiVálasz(mondat) {
+            let v = "Ezt még tanulom, Milán, de kérdezz mást!";
+            
+            if (mondat.includes("idő") || mondat.includes("óra")) {
+                v = "A pontos idő " + new Date().toLocaleTimeString('hu-HU', {hour: '2-digit', minute: '2-digit'}) + ".";
+            } else if (mondat.includes("windows")) {
+                v = "A legújabb verzió a Windows 11, de az én rendszerem minden Windowson elfut!";
+            } else if (mondat.includes("hogy vagy")) {
+                v = "Remekül vagyok, köszönöm Milán! Te hogy érzed magad?";
+            } else if (mondat.includes("vicc")) {
+                v = "Miért nem beszélnek a programozók a tengerparton? Mert mindenki a saját kódjával van elfoglalva!";
+            } else if (mondat.includes("szia") || mondat.includes("üdv")) {
+                v = "Szia Milán! Én vagyok a te személyes asszisztensed.";
+            } else if (mondat.includes("köszönöm") || mondat.includes("szívesen")) {
+                v = "Igazán nincs mit, Milán! Mindig a szolgálatodra állok.";
+            }
+            
+            beszelj(v);
         }
 
         function beszelj(szoveg) {
@@ -82,15 +114,26 @@
             const synth = window.speechSynthesis;
             const utterance = new SpeechSynthesisUtterance(szoveg);
             utterance.lang = 'hu-HU';
-            
+            utterance.pitch = 1;
+            utterance.rate = 1;
+
+            utterance.onstart = () => {
+                ball.classList.add('active');
+                status.innerText = "Milán válaszol...";
+            };
+
             utterance.onend = () => {
                 ball.classList.remove('active');
-                status.innerText = "Várom a hívószót...";
+                status.innerText = "Várom a hívószót (Hé Milán)...";
             };
+
             synth.speak(utterance);
         }
 
-        recognition.onend = () => recognition.start();
+        // Automatikus újraindítás, ha leállna a figyelés
+        recognition.onend = () => {
+            try { recognition.start(); } catch(e) {}
+        };
     </script>
 </body>
 </html>
