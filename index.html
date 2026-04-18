@@ -3,96 +3,89 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Milán Intelligent Assistant</title>
+    <title>Milán AI - Deep Intelligence</title>
     <style>
-        body { background: #020617; color: #f8fafc; font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; }
-        
-        /* Pulzáló AI mag */
-        .ai-core {
-            width: 140px; height: 140px; border-radius: 50%;
-            background: conic-gradient(#1db954, #38bdf8, #1db954);
-            display: flex; align-items: center; justify-content: center;
-            font-size: 60px; cursor: pointer; position: relative;
-            transition: 0.5s; box-shadow: 0 0 30px rgba(56, 189, 248, 0.2);
-        }
-        
-        .thinking { animation: rotate 2s linear infinite; box-shadow: 0 0 60px #38bdf8; }
-        @keyframes rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-
-        #response-text {
-            margin-top: 30px; padding: 20px; border-radius: 15px;
-            background: rgba(255,255,255,0.05); width: 80%;
-            min-height: 80px; text-align: center; font-size: 1.2rem;
-            border-left: 4px solid #38bdf8;
-        }
+        :root { --accent: #38bdf8; --bg: #020617; }
+        body { background: var(--bg); color: white; font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+        .ai-core { width: 140px; height: 140px; border-radius: 50%; background: radial-gradient(circle, #38bdf8 0%, #000 100%); display: flex; align-items: center; justify-content: center; font-size: 60px; cursor: pointer; transition: 0.5s; box-shadow: 0 0 30px rgba(56, 189, 248, 0.2); }
+        .listening { transform: scale(1.1); box-shadow: 0 0 60px #38bdf8; animation: pulse 1s infinite; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }
+        #response { margin-top: 30px; padding: 20px; width: 80%; max-width: 600px; background: rgba(255,255,255,0.05); border-radius: 15px; text-align: center; font-size: 1.1rem; min-height: 50px; border: 1px solid rgba(56, 189, 248, 0.2); }
     </style>
 </head>
 <body>
 
     <div class="ai-core" id="aiBtn">M</div>
-    <div id="status">Koppints a beszédhez</div>
-    <div id="response-text">Szia Milán! Én egy valódi AI vagyok. Kérdezz tőlem bármit, vagy kérj zenét!</div>
+    <div id="status" style="margin-top: 10px; color: #64748b;">Koppints és beszélj!</div>
+    <div id="response">Szia Milán! Most már a Hugging Face agyamat használom. Kérdezz bátran!</div>
 
     <script>
         // --- KONFIGURÁCIÓ ---
+        const HF_TOKEN = "IDE_MÁSOLD_A_HUGGINGFACE_TOKENEDET"; 
         const JOIN_API_KEY = "37fb0c375bfc4db18eea3d9148f7200e";
         const JOIN_DEVICE_ID = "52f9bb814cc24dba8457407666fd1464";
-        // Ide illesztheted majd a Gemini vagy más AI kulcsodat
-        const AI_API_URL = "https://api-inference.huggingface.co/models/facebook/blenderbot-400M-distill"; 
 
         const aiBtn = document.getElementById('aiBtn');
-        const respDisplay = document.getElementById('response-text');
+        const respDisplay = document.getElementById('response');
         
         const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
         recognition.lang = 'hu-HU';
 
         aiBtn.onclick = () => {
-            recognition.start();
-            aiBtn.classList.add('thinking');
-            document.getElementById('status').innerText = "Hallgatom a kérdésed...";
+            try { recognition.start(); } catch(e) { console.log("Már fut..."); }
         };
 
+        recognition.onstart = () => { aiBtn.classList.add('listening'); };
+        recognition.onend = () => { aiBtn.classList.remove('listening'); };
+
         recognition.onresult = async (event) => {
-            const userSpeech = event.results[0][0].transcript;
+            const userText = event.results[0][0].transcript;
             respDisplay.innerText = "Gondolkodom...";
-            
-            // 1. Megnézzük, zenét akar-e (Helyi logika)
-            if (userSpeech.toLowerCase().includes("játszd le") || userSpeech.toLowerCase().includes("indítsd el")) {
-                const song = userSpeech.toLowerCase().replace(/játszd le a|indítsd el a|milán/g, "").trim();
+
+            // 1. ZENE ELLENŐRZÉSE
+            if (userText.toLowerCase().includes("játszd le") || userText.toLowerCase().includes("indítsd el")) {
+                const song = userText.toLowerCase().replace(/játszd le a|indítsd el a|milán/g, "").trim();
                 playSpotify(song);
                 return;
             }
 
-            // 2. Ha nem zene, küldjük az AI-nak (API hívás)
-            const aiAnswer = await askTheAI(userSpeech);
+            // 2. VALÓDI AI VÁLASZ (Hugging Face API)
+            const aiAnswer = await askHuggingFace(userText);
             speak(aiAnswer);
         };
 
-        // --- AZ AI AGYA (API HÍVÁS) ---
-        async function askTheAI(question) {
+        async function askHuggingFace(text) {
             try {
-                // Itt egy ingyenes AI modellt hívunk meg (példa)
-                // Milán, ide jönne a valódi API kulcsos hívásod
-                return "Szia Milán! Azt kérdezted, hogy: " + question + ". Ez egy izgalmas kérdés, de még be kell kötnöd a Gemini API kulcsodat, hogy pontosan válaszolhassak!";
+                const response = await fetch("https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2", {
+                    headers: { 
+                        Authorization: `Bearer ${HF_TOKEN}`,
+                        "Content-Type": "application/json"
+                    },
+                    method: "POST",
+                    body: JSON.stringify({ inputs: `User: ${text}\nAssistant:`, parameters: { max_new_tokens: 100 } }),
+                });
+                
+                const result = await response.json();
+                // A válasz tisztítása (levágjuk az eredeti kérdést)
+                let finalTxt = result[0].generated_text.split("Assistant:")[1] || result[0].generated_text;
+                return finalTxt.trim();
             } catch (e) {
-                return "Hiba történt az AI agyam elérésekor.";
+                return "Sajnos az agyam most kicsit túlterhelt, Milán. Próbáld újra!";
             }
         }
 
         async function playSpotify(song) {
             const spotifyUri = `spotify:search:${encodeURIComponent(song)}`;
             const url = `https://joinjoaomgcd.appspot.com/_ah/api/messaging/v1/sendPush?url=${encodeURIComponent(spotifyUri)}&text=${encodeURIComponent("play " + song)}&app=Spotify&deviceId=${JOIN_DEVICE_ID}&apikey=${JOIN_API_KEY}`;
-            await fetch(url, { mode: 'no-cors' });
-            speak("Rendben Milán, indítom a Spotify-on a következőt: " + song);
+            fetch(url, { mode: 'no-cors' });
+            speak("Rendben Milán, indítom a Spotify-on: " + song);
         }
 
         function speak(text) {
             respDisplay.innerText = text;
-            aiBtn.classList.remove('thinking');
-            const synth = window.speechSynthesis;
             const utter = new SpeechSynthesisUtterance(text);
             utter.lang = 'hu-HU';
-            synth.speak(utter);
+            window.speechSynthesis.speak(utter);
         }
     </script>
 </body>
