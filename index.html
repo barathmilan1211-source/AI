@@ -6,50 +6,76 @@
     <title>Milán AI - Deep Intelligence</title>
     <style>
         :root { --accent: #38bdf8; --bg: #020617; }
-        body { background: var(--bg); color: white; font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; }
-        .ai-core { width: 140px; height: 140px; border-radius: 50%; background: radial-gradient(circle, #38bdf8 0%, #000 100%); display: flex; align-items: center; justify-content: center; font-size: 60px; cursor: pointer; transition: 0.5s; box-shadow: 0 0 30px rgba(56, 189, 248, 0.2); }
+        body { background: var(--bg); color: white; font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; overflow: hidden; }
+        
+        .ai-core { 
+            width: 140px; height: 140px; border-radius: 50%; 
+            background: radial-gradient(circle, #38bdf8 0%, #000 100%); 
+            display: flex; align-items: center; justify-content: center; 
+            font-size: 60px; cursor: pointer; transition: 0.5s; 
+            box-shadow: 0 0 30px rgba(56, 189, 248, 0.2); 
+            user-select: none;
+        }
+
         .listening { transform: scale(1.1); box-shadow: 0 0 60px #38bdf8; animation: pulse 1s infinite; }
-        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }
-        #response { margin-top: 30px; padding: 20px; width: 80%; max-width: 600px; background: rgba(255,255,255,0.05); border-radius: 15px; text-align: center; font-size: 1.1rem; min-height: 50px; border: 1px solid rgba(56, 189, 248, 0.2); }
+        .thinking { animation: rotate 2s linear infinite; filter: hue-rotate(90deg); }
+
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+        @keyframes rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+        #response { 
+            margin-top: 30px; padding: 20px; width: 85%; max-width: 600px; 
+            background: rgba(255,255,255,0.05); border-radius: 15px; 
+            text-align: center; font-size: 1.2rem; min-height: 60px; 
+            border: 1px solid rgba(56, 189, 248, 0.2); 
+            backdrop-filter: blur(10px);
+        }
+        
+        #status { margin-top: 15px; color: #64748b; font-size: 0.9rem; letter-spacing: 1px; }
     </style>
 </head>
 <body>
 
     <div class="ai-core" id="aiBtn">M</div>
-    <div id="status" style="margin-top: 10px; color: #64748b;">Koppints és beszélj!</div>
-    <div id="response">Szia Milán! Most már a Hugging Face agyamat használom. Kérdezz bátran!</div>
+    <div id="status">KATTINTS ÉS BESZÉLJ</div>
+    <div id="response">Szia Milán! Készen állok a parancsaidra.</div>
 
     <script>
         // --- KONFIGURÁCIÓ ---
-        const HF_TOKEN = "IDE_MÁSOLD_A_HUGGINGFACE_TOKENEDET"; 
+        // IDE MÁSOLD AZ ÚJ TOKENEDET:
+        const HF_TOKEN = "hf_XXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"; 
         const JOIN_API_KEY = "37fb0c375bfc4db18eea3d9148f7200e";
         const JOIN_DEVICE_ID = "52f9bb814cc24dba8457407666fd1464";
 
         const aiBtn = document.getElementById('aiBtn');
         const respDisplay = document.getElementById('response');
+        const statusDisplay = document.getElementById('status');
         
         const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
         recognition.lang = 'hu-HU';
 
         aiBtn.onclick = () => {
-            try { recognition.start(); } catch(e) { console.log("Már fut..."); }
+            try { 
+                recognition.start(); 
+                statusDisplay.innerText = "HALLGATLAK...";
+                aiBtn.classList.add('listening');
+            } catch(e) { console.log("Már fut..."); }
         };
-
-        recognition.onstart = () => { aiBtn.classList.add('listening'); };
-        recognition.onend = () => { aiBtn.classList.remove('listening'); };
 
         recognition.onresult = async (event) => {
             const userText = event.results[0][0].transcript;
+            aiBtn.classList.remove('listening');
+            aiBtn.classList.add('thinking');
             respDisplay.innerText = "Gondolkodom...";
 
-            // 1. ZENE ELLENŐRZÉSE
+            // 1. ZENE VEZÉRLÉS (Azonnali reakció)
             if (userText.toLowerCase().includes("játszd le") || userText.toLowerCase().includes("indítsd el")) {
                 const song = userText.toLowerCase().replace(/játszd le a|indítsd el a|milán/g, "").trim();
                 playSpotify(song);
                 return;
             }
 
-            // 2. VALÓDI AI VÁLASZ (Hugging Face API)
+            // 2. AI VÁLASZ (Hugging Face)
             const aiAnswer = await askHuggingFace(userText);
             speak(aiAnswer);
         };
@@ -62,31 +88,49 @@
                         "Content-Type": "application/json"
                     },
                     method: "POST",
-                    body: JSON.stringify({ inputs: `User: ${text}\nAssistant:`, parameters: { max_new_tokens: 100 } }),
+                    body: JSON.stringify({ 
+                        inputs: `<s>[INST] Te Milán AI asszisztense vagy. Válaszolj röviden magyarul erre: ${text} [/INST]`,
+                        parameters: { max_new_tokens: 150, wait_for_model: true } 
+                    }),
                 });
                 
                 const result = await response.json();
-                // A válasz tisztítása (levágjuk az eredeti kérdést)
-                let finalTxt = result[0].generated_text.split("Assistant:")[1] || result[0].generated_text;
-                return finalTxt.trim();
+                
+                if (result.error && result.error.includes("currently loading")) {
+                    return "A modellem épp most töltődik be, kérlek várj 10 másodpercet és próbáld újra!";
+                }
+
+                let fullText = result[0].generated_text;
+                let cleanText = fullText.split("[/INST]").pop().trim();
+                return cleanText || "Értem, de most nem tudok mit mondani.";
+
             } catch (e) {
-                return "Sajnos az agyam most kicsit túlterhelt, Milán. Próbáld újra!";
+                console.error(e);
+                return "Hiba történt a kapcsolódáskor. Ellenőrizd a Token-edet!";
             }
         }
 
         async function playSpotify(song) {
             const spotifyUri = `spotify:search:${encodeURIComponent(song)}`;
             const url = `https://joinjoaomgcd.appspot.com/_ah/api/messaging/v1/sendPush?url=${encodeURIComponent(spotifyUri)}&text=${encodeURIComponent("play " + song)}&app=Spotify&deviceId=${JOIN_DEVICE_ID}&apikey=${JOIN_API_KEY}`;
+            
             fetch(url, { mode: 'no-cors' });
             speak("Rendben Milán, indítom a Spotify-on: " + song);
         }
 
         function speak(text) {
+            aiBtn.classList.remove('thinking');
+            statusDisplay.innerText = "KATTINTS ÉS BESZÉLJ";
             respDisplay.innerText = text;
             const utter = new SpeechSynthesisUtterance(text);
             utter.lang = 'hu-HU';
             window.speechSynthesis.speak(utter);
         }
+
+        recognition.onerror = () => {
+            aiBtn.classList.remove('listening');
+            statusDisplay.innerText = "HIBA TÖRTÉNT";
+        };
     </script>
 </body>
 </html>
