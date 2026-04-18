@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Milán AI - Gemini Fix</title>
+    <title>Milán AI - Gemini Golyóálló</title>
     <style>
         :root { --accent: #4f46e5; --bg: #050505; }
         body { background: var(--bg); color: white; font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; overflow: hidden; }
@@ -20,9 +20,10 @@
 
     <div class="ai-orb" id="orb">M</div>
     <div id="status">Kattints a beszédhez</div>
-    <div id="response-box">Szia Milán! Próbáljuk meg újra.</div>
+    <div id="response-box">Szia Milán! Most már tényleg működnöm kell.</div>
 
     <script>
+        // --- KONFIGURÁCIÓ ---
         const GEMINI_API_KEY = "AIzaSyD3_jjMR5S4n8UVV45fD9EgfUA33vesepA";
         const JOIN_API_KEY = "37fb0c375bfc4db18eea3d9148f7200e";
         const JOIN_DEVICE_ID = "52f9bb814cc24dba8457407666fd1464";
@@ -59,30 +60,30 @@
         };
 
         async function askGemini(prompt) {
-            // A legfrissebb Gemini-1.5-flash modellt használjuk, ami stabilabb
+            // Ez a speciális URL segít kikerülni a böngésző tiltását (CORS)
             const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
             
-            const requestOptions = {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    contents: [{ parts: [{ text: `Te Milán AI asszisztense vagy. Válaszolj röviden, 1-2 mondatban magyarul: ${prompt}` }] }]
-                })
-            };
-
             try {
-                const response = await fetch(url, requestOptions);
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: `Te Milán AI asszisztense vagy. Válaszolj röviden magyarul: ${prompt}` }] }]
+                    })
+                });
+
                 const data = await response.json();
                 
-                if (data.candidates && data.candidates[0].content) {
-                    return data.candidates[0].content.parts[0].text;
-                } else {
-                    console.error("API Hiba:", data);
-                    return "A Gemini válasza üres volt. Ellenőrizd a kulcsod állapotát!";
+                // Ellenőrizzük, hogy van-e hiba a válaszban
+                if (data.error) {
+                    console.error("Gemini Hiba:", data.error.message);
+                    return "Sajnos az API kulcsod még nem aktív vagy hiba van benne. Próbáld meg 5 perc múlva!";
                 }
+
+                return data.candidates[0].content.parts[0].text;
             } catch (e) {
-                console.error("Fetch Hiba:", e);
-                return "Nem tudtam kapcsolódni a Google szerveréhez.";
+                console.error("Kapcsolódási hiba:", e);
+                return "Sajnos nem sikerült elérnem a Google-t. Próbáld újra!";
             }
         }
 
@@ -101,11 +102,6 @@
             window.speechSynthesis.speak(utter);
             statusText.innerText = "KATTINTS A BESZÉDHEZ";
         }
-
-        recognition.onerror = () => {
-            orb.classList.remove('listening');
-            statusText.innerText = "Hiba a mikrofonnál";
-        };
     </script>
 </body>
 </html>
