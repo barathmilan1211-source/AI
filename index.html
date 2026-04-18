@@ -22,7 +22,7 @@
     <script>
         // --- JOIN API ADATOK ---
         const JOIN_API_KEY = "37fb0c375bfc4db18eea3d9148f7200e";
-        const JOIN_DEVICE_ID = "group.all"; // Ez az összes eszközödre küldi a parancsot
+        const JOIN_DEVICE_ID = "group.all"; 
 
         const ball = document.getElementById('ball');
         const status = document.getElementById('status');
@@ -44,7 +44,6 @@
             const text = event.results[event.results.length - 1][0].transcript.toLowerCase();
             console.log("Bevitel:", text);
 
-            // Csak akkor válaszol, ha hallja a nevedet
             if (text.includes("milán") || text.includes("milan")) {
                 const parancs = text.replace(/milán|milan/g, "").trim();
                 feldolgozas(parancs);
@@ -62,24 +61,26 @@
             } else if (mondat.includes("idő")) {
                 beszelj("A pontos idő " + new Date().toLocaleTimeString('hu-HU', {hour: '2-digit', minute: '2-digit'}));
             } else {
-                beszelj("Hallgatlak!");
+                beszelj("Mondd, hogy: indítsd el a..., és a nevem!");
             }
         }
 
         async function inditsdSamsungMusic(zeneCim) {
-            status.innerText = "Parancs küldése...";
+            status.innerText = "Parancs küldése a telefonra...";
             
-            // Ez az Android "Intent" ami megnyitja a Samsung Music keresőjét és elindítja a dalt
-            const intent = `intent:https://www.google.com#Intent;action=android.media.action.MEDIA_PLAY_FROM_SEARCH;query=${encodeURIComponent(zeneCim)};package=com.sec.android.app.music;end`;
+            // Biztonságos Google link, amit a Join értesítésként küld el
+            const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(zeneCim)}+samsung+music`;
             
-            const url = `https://joinjoaomgcd.appspot.com/_ah/api/messaging/v1/sendPush?url=${encodeURIComponent(intent)}&deviceId=${JOIN_DEVICE_ID}&apikey=${JOIN_API_KEY}`;
+            // Join API hívás: url (amit megnyit) és text (ami az értesítésben megjelenik)
+            const apiUrl = `https://joinjoaomgcd.appspot.com/_ah/api/messaging/v1/sendPush?url=${encodeURIComponent(searchUrl)}&text=${encodeURIComponent("Zene indítása: " + zeneCim)}&deviceId=${JOIN_DEVICE_ID}&apikey=${JOIN_API_KEY}`;
 
             try {
-                // Meghívjuk a Join API-t
-                await fetch(url, { mode: 'no-cors' }); 
-                beszelj("Rendben Milán, indítom a " + zeneCim + " című számot a telefonodon.");
+                // No-cors módban hívjuk, hogy ne legyen hiba a böngészőben
+                await fetch(apiUrl, { mode: 'no-cors' }); 
+                beszelj("Rendben Milán, küldtem egy értesítést a Samsungra: " + zeneCim);
             } catch (e) {
-                beszelj("Hiba történt a küldés során.");
+                console.error(e);
+                beszelj("Sajnos hiba történt a küldés közben.");
             }
         }
 
