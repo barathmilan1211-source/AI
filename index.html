@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Milán AI - Samsung Control</title>
+    <title>Milán AI - Samsung Music Control</title>
     <style>
         body { background: #0f172a; color: white; font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; overflow: hidden; }
         .milan-ball { width: 170px; height: 170px; border-radius: 50%; background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%); display: flex; align-items: center; justify-content: center; font-size: 70px; cursor: pointer; box-shadow: 0 0 30px rgba(14, 165, 233, 0.4); transition: 0.4s; user-select: none; }
@@ -11,7 +11,6 @@
         @keyframes pulse { 0% { transform: scale(1.1); } 50% { transform: scale(1.15); } 100% { transform: scale(1.1); } }
         #status { margin-top: 30px; font-size: 1.2rem; color: #94a3b8; text-align: center; }
         #chat { margin-top: 20px; color: #38bdf8; font-style: italic; text-align: center; max-width: 85%; font-size: 1.3rem; min-height: 60px; }
-        .hint { margin-top: 40px; font-size: 0.8rem; color: #475569; }
     </style>
 </head>
 <body>
@@ -19,12 +18,11 @@
     <div class="milan-ball" id="ball">M</div>
     <p id="status">Kattints az M-re!</p>
     <div id="chat"></div>
-    <p class="hint">Mondd: "Milán, játszd le a kedvenc zeném!"</p>
 
     <script>
-        // --- JOIN API BEÁLLÍTÁSOK (Ide másold a saját adataidat) ---
-        const JOIN_API_KEY = "IDE_ÍRD_AZ_API_KULCSOT";
-        const JOIN_DEVICE_ID = "IDE_ÍRD_A_DEVICE_ID-T";
+        // --- JOIN API ADATOK ---
+        const JOIN_API_KEY = "37fb0c375bfc4db18eea3d9148f7200e";
+        const JOIN_DEVICE_ID = "group.all"; // Ez az összes eszközödre küldi a parancsot
 
         const ball = document.getElementById('ball');
         const status = document.getElementById('status');
@@ -37,15 +35,16 @@
         ball.onclick = () => {
             try {
                 recognition.start();
-                status.innerText = "Hallgatlak, Milán!";
+                status.innerText = "Figyelek rád, Milán!";
                 ball.innerText = "🎤";
-            } catch(e) { console.log("A mikrofon már fut."); }
+            } catch(e) {}
         };
 
         recognition.onresult = (event) => {
             const text = event.results[event.results.length - 1][0].transcript.toLowerCase();
-            console.log("Hallottam:", text);
+            console.log("Bevitel:", text);
 
+            // Csak akkor válaszol, ha hallja a nevedet
             if (text.includes("milán") || text.includes("milan")) {
                 const parancs = text.replace(/milán|milan/g, "").trim();
                 feldolgozas(parancs);
@@ -53,46 +52,34 @@
         };
 
         function feldolgozas(mondat) {
-            // Zene lejátszása parancs
             if (mondat.includes("játszd le a") || mondat.includes("indítsd el a")) {
                 const zene = mondat.replace(/játszd le a|indítsd el a/g, "").trim();
                 if (zene.length > 1) {
-                    kuldesTelefonra(zene);
-                } else {
-                    beszelj("Melyik számot indítsam el?");
+                    inditsdSamsungMusic(zene);
                 }
-            } 
-            // Alapvető kérdések (Ha nincs kedved zenét hallgatni)
-            else if (mondat.includes("hogy vagy")) {
-                beszelj("Remekül vagyok Milán, készen állok a zenelejátszásra!");
-            }
-            else if (mondat.includes("idő")) {
+            } else if (mondat.includes("hogy vagy")) {
+                beszelj("Köszi Milán, szuperül! Készen állok a zenére.");
+            } else if (mondat.includes("idő")) {
                 beszelj("A pontos idő " + new Date().toLocaleTimeString('hu-HU', {hour: '2-digit', minute: '2-digit'}));
-            }
-            else {
-                beszelj("Itt vagyok, figyelek!");
+            } else {
+                beszelj("Hallgatlak!");
             }
         }
 
-        async function kuldesTelefonra(zeneCim) {
-            status.innerText = "Parancs küldése a Samsungnak...";
+        async function inditsdSamsungMusic(zeneCim) {
+            status.innerText = "Parancs küldése...";
             
-            // Ez az Android Intent megnyitja a Samsung Music-ot és rákeres a zenére
+            // Ez az Android "Intent" ami megnyitja a Samsung Music keresőjét és elindítja a dalt
             const intent = `intent:https://www.google.com#Intent;action=android.media.action.MEDIA_PLAY_FROM_SEARCH;query=${encodeURIComponent(zeneCim)};package=com.sec.android.app.music;end`;
             
-            // Join API hívás
             const url = `https://joinjoaomgcd.appspot.com/_ah/api/messaging/v1/sendPush?url=${encodeURIComponent(intent)}&deviceId=${JOIN_DEVICE_ID}&apikey=${JOIN_API_KEY}`;
 
             try {
-                const response = await fetch(url);
-                if (response.ok) {
-                    beszelj("Rendben, küldöm a parancsot! Indítom a " + zeneCim + " című számot a Samsung Music-ban.");
-                } else {
-                    throw new Error();
-                }
+                // Meghívjuk a Join API-t
+                await fetch(url, { mode: 'no-cors' }); 
+                beszelj("Rendben Milán, indítom a " + zeneCim + " című számot a telefonodon.");
             } catch (e) {
-                console.error(e);
-                beszelj("Sajnos nem sikerült elérni a telefonodat. Ellenőrizd a Join beállításait!");
+                beszelj("Hiba történt a küldés során.");
             }
         }
 
@@ -101,12 +88,8 @@
             const synth = window.speechSynthesis;
             const utterance = new SpeechSynthesisUtterance(szoveg);
             utterance.lang = 'hu-HU';
-            
             ball.classList.add('active');
-            utterance.onend = () => {
-                ball.classList.remove('active');
-                status.innerText = "Várom a hívószót (Hé Milán)...";
-            };
+            utterance.onend = () => ball.classList.remove('active');
             synth.speak(utterance);
         }
 
