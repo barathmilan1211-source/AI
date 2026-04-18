@@ -3,88 +3,79 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Milán AI - Stabil v1</title>
+    <title>Milán AI - Ultra Stabil</title>
     <style>
-        :root { --accent: #6366f1; --bg: #020617; --spotify: #1db954; }
-        body { background: var(--bg); color: white; font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; }
-        
-        .orb { 
-            width: 140px; height: 140px; border-radius: 50%; 
-            background: radial-gradient(circle, var(--accent) 0%, #000 85%); 
-            cursor: pointer; display: flex; align-items: center; justify-content: center; 
-            font-size: 60px; transition: 0.3s; box-shadow: 0 0 30px rgba(99, 102, 241, 0.3); 
-            border: 2px solid rgba(255,255,255,0.1); 
-        }
-        
+        :root { --accent: #6366f1; --bg: #020617; }
+        body { background: var(--bg); color: white; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; overflow: hidden; }
+        .orb { width: 140px; height: 140px; border-radius: 50%; background: radial-gradient(circle, var(--accent) 0%, #000 80%); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 60px; transition: 0.3s; box-shadow: 0 0 30px rgba(99, 102, 241, 0.3); border: 2px solid rgba(255,255,255,0.1); }
         .listening { transform: scale(1.1); box-shadow: 0 0 50px var(--accent); animation: pulse 1s infinite; }
-        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
-
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
         #res { margin-top: 30px; padding: 20px; width: 85%; max-width: 600px; background: rgba(255,255,255,0.05); border-radius: 15px; text-align: center; font-size: 1.2rem; min-height: 60px; border: 1px solid rgba(255,255,255,0.1); }
-        #status { margin-top: 15px; color: #6366f1; font-weight: bold; font-size: 0.8rem; letter-spacing: 2px; }
+        #status { margin-top: 15px; color: #4b5563; font-weight: bold; font-size: 0.8rem; }
     </style>
 </head>
 <body>
 
     <div class="orb" id="orb">M</div>
     <div id="status">KATTINTS ÉS BESZÉLJ</div>
-    <div id="res">Szia Milán! Most már a v1-es stabil kapcsolaton várlak.</div>
+    <div id="res">Szia Milán! Ez a verzió már "okosabb" kapcsolódást használ.</div>
 
     <script>
-        // ADATOK (A második kulcsodat használjuk, az stabilabbnak tűnt)
         const API_KEY = "AIzaSyBbvSYAX5rTY8asxEB-sMIuPcllsC5kJYk";
         const JOIN_KEY = "37fb0c375bfc4db18eea3d9148f7200e";
         const DEVICE_ID = "52f9bb814cc24dba8457407666fd1464";
 
         const orb = document.getElementById('orb');
         const resBox = document.getElementById('res');
-        const statusTxt = document.getElementById('status');
         
         const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
         recognition.lang = 'hu-HU';
 
         orb.onclick = () => {
-            try {
-                recognition.start();
-                orb.classList.add('listening');
-                statusTxt.innerText = "HALLGATLAK...";
-            } catch(e) { console.log("Újraindítás..."); }
+            recognition.start();
+            orb.classList.add('listening');
+            document.getElementById('status').innerText = "HALLGATLAK...";
         };
 
         recognition.onresult = async (event) => {
-            const speech = event.results[0][0].transcript;
+            const text = event.results[0][0].transcript;
             orb.classList.remove('listening');
             resBox.innerText = "Gondolkodom...";
 
-            // ZENE VEZÉRLÉS
-            if (speech.toLowerCase().includes("játszd le") || speech.toLowerCase().includes("indítsd el")) {
-                const song = speech.toLowerCase().replace(/játszd le a|indítsd el a|milán/g, "").trim();
-                playMusic(song);
+            if (text.toLowerCase().includes("játszd le") || text.toLowerCase().includes("indítsd el")) {
+                play(text.toLowerCase().replace(/játszd le a|indítsd el a|milán/g, "").trim());
                 return;
             }
 
-            // GEMINI HÍVÁS (Stabil v1 API és 1.5-flash modell)
-            const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
-            
-            try {
-                const response = await fetch(url, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        contents: [{ parts: [{ text: `Te Milán asszisztense vagy. Válaszolj magyarul, röviden: ${speech}` }] }]
-                    })
-                });
+            // MEGOLDÁS: Megpróbáljuk a két legvalószínűbb nevet
+            const modelNames = ["gemini-1.5-flash", "gemini-pro"];
+            let success = false;
 
-                const data = await response.json();
+            for (let model of modelNames) {
+                if (success) break;
                 
-                if (data.candidates && data.candidates[0].content) {
-                    const reply = data.candidates[0].content.parts[0].text;
-                    speak(reply);
-                } else {
-                    console.error("API Válasz:", data);
-                    resBox.innerText = "Hiba: A Google elutasította a kérést. Ellenőrizd az API kulcsod!";
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${API_KEY}`;
+                
+                try {
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ contents: [{ parts: [{ text: "Válaszolj magyarul, röviden: " + text }] }] })
+                    });
+                    const data = await response.json();
+                    
+                    if (data.candidates && data.candidates[0].content) {
+                        const reply = data.candidates[0].content.parts[0].text;
+                        speak(reply);
+                        success = true;
+                    }
+                } catch (e) {
+                    console.log(model + " sikertelen, próbálom a következőt...");
                 }
-            } catch (e) {
-                resBox.innerText = "Hálózati hiba történt.";
+            }
+
+            if (!success) {
+                resBox.innerText = "Sajnos egyik modell sem válaszolt. Ellenőrizd a Google AI Studio-t!";
             }
         };
 
@@ -93,14 +84,14 @@
             const u = new SpeechSynthesisUtterance(t);
             u.lang = 'hu-HU';
             window.speechSynthesis.speak(u);
-            statusTxt.innerText = "KATTINTS ÉS BESZÉLJ";
+            document.getElementById('status').innerText = "KATTINTS A BESZÉDHEZ";
         }
 
-        async function playMusic(s) {
+        async function play(s) {
             const uri = `spotify:search:${encodeURIComponent(s)}`;
             const jUrl = `https://joinjoaomgcd.appspot.com/_ah/api/messaging/v1/sendPush?url=${encodeURIComponent(uri)}&text=${encodeURIComponent("Play: " + s)}&app=Spotify&deviceId=${DEVICE_ID}&apikey=${JOIN_KEY}`;
             fetch(jUrl, { mode: 'no-cors' });
-            speak("Rendben, indítom a Spotify-on: " + s);
+            speak("Indítom: " + s);
         }
     </script>
 </body>
