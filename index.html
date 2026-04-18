@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Milán AI - Samsung Music Control</title>
+    <title>Milán AI - Samsung Fix</title>
     <style>
         body { background: #0f172a; color: white; font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; overflow: hidden; }
         .milan-ball { width: 170px; height: 170px; border-radius: 50%; background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%); display: flex; align-items: center; justify-content: center; font-size: 70px; cursor: pointer; box-shadow: 0 0 30px rgba(14, 165, 233, 0.4); transition: 0.4s; user-select: none; }
@@ -20,7 +20,6 @@
     <div id="chat"></div>
 
     <script>
-        // --- JOIN API ADATOK ---
         const JOIN_API_KEY = "37fb0c375bfc4db18eea3d9148f7200e";
         const JOIN_DEVICE_ID = "group.all"; 
 
@@ -35,15 +34,13 @@
         ball.onclick = () => {
             try {
                 recognition.start();
-                status.innerText = "Figyelek rád, Milán!";
+                status.innerText = "Hallgatlak!";
                 ball.innerText = "🎤";
             } catch(e) {}
         };
 
         recognition.onresult = (event) => {
             const text = event.results[event.results.length - 1][0].transcript.toLowerCase();
-            console.log("Bevitel:", text);
-
             if (text.includes("milán") || text.includes("milan")) {
                 const parancs = text.replace(/milán|milan/g, "").trim();
                 feldolgozas(parancs);
@@ -53,34 +50,25 @@
         function feldolgozas(mondat) {
             if (mondat.includes("játszd le a") || mondat.includes("indítsd el a")) {
                 const zene = mondat.replace(/játszd le a|indítsd el a/g, "").trim();
-                if (zene.length > 1) {
-                    inditsdSamsungMusic(zene);
-                }
-            } else if (mondat.includes("hogy vagy")) {
-                beszelj("Köszi Milán, szuperül! Készen állok a zenére.");
-            } else if (mondat.includes("idő")) {
-                beszelj("A pontos idő " + new Date().toLocaleTimeString('hu-HU', {hour: '2-digit', minute: '2-digit'}));
+                uzenetKuldes(zene);
             } else {
-                beszelj("Mondd, hogy: indítsd el a..., és a nevem!");
+                beszelj("Itt vagyok!");
             }
         }
 
-        async function inditsdSamsungMusic(zeneCim) {
-            status.innerText = "Parancs küldése a telefonra...";
+        async function uzenetKuldes(zeneCim) {
+            status.innerText = "Üzenet küldése...";
             
-            // Biztonságos Google link, amit a Join értesítésként küld el
-            const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(zeneCim)}+samsung+music`;
-            
-            // Join API hívás: url (amit megnyit) és text (ami az értesítésben megjelenik)
-            const apiUrl = `https://joinjoaomgcd.appspot.com/_ah/api/messaging/v1/sendPush?url=${encodeURIComponent(searchUrl)}&text=${encodeURIComponent("Zene indítása: " + zeneCim)}&deviceId=${JOIN_DEVICE_ID}&apikey=${JOIN_API_KEY}`;
+            // Itt most CSAK TEXT paramétert küldünk, URL-t NEM!
+            // Így a telefonod sima értesítésként kapja meg, és nincs URL hiba.
+            const textToSend = "Milán, indítsd el ezt: " + zeneCim;
+            const apiUrl = `https://joinjoaomgcd.appspot.com/_ah/api/messaging/v1/sendPush?text=${encodeURIComponent(textToSend)}&deviceId=${JOIN_DEVICE_ID}&apikey=${JOIN_API_KEY}`;
 
             try {
-                // No-cors módban hívjuk, hogy ne legyen hiba a böngészőben
                 await fetch(apiUrl, { mode: 'no-cors' }); 
-                beszelj("Rendben Milán, küldtem egy értesítést a Samsungra: " + zeneCim);
+                beszelj("Rendben! Elküldtem az üzenetet a telefonodra: " + zeneCim);
             } catch (e) {
-                console.error(e);
-                beszelj("Sajnos hiba történt a küldés közben.");
+                beszelj("Hiba a küldés során.");
             }
         }
 
