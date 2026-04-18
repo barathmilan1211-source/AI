@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Milán AI - Spotify Master</title>
+    <title>Milán AI - Spotify AutoPlay</title>
     <style>
         body { background: #09090b; color: white; font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; overflow: hidden; }
         .milan-ball { width: 160px; height: 160px; border-radius: 50%; background: radial-gradient(circle, #1db954, #121212); display: flex; align-items: center; justify-content: center; font-size: 70px; cursor: pointer; box-shadow: 0 0 40px rgba(29, 185, 84, 0.3); transition: 0.5s; user-select: none; border: 4px solid #1db954; }
@@ -16,11 +16,11 @@
 <body>
 
     <div class="milan-ball" id="ball">M</div>
-    <p id="status">Kattints az M gombra!</p>
+    <p id="status">Kattints a gombra!</p>
     <div id="chat"></div>
 
     <script>
-        // --- PONTOS JOIN ADATOK ---
+        // --- A TE ADATAID ---
         const API_KEY = "37fb0c375bfc4db18eea3d9148f7200e";
         const DEVICE_ID = "52f9bb814cc24dba8457407666fd1464";
 
@@ -35,15 +35,13 @@
         ball.onclick = () => {
             try {
                 recognition.start();
-                status.innerText = "Figyelek rád, Milán!";
+                status.innerText = "Hallgatlak, Milán!";
                 ball.innerText = "🎤";
             } catch(e) {}
         };
 
         recognition.onresult = (event) => {
             const result = event.results[event.results.length - 1][0].transcript.toLowerCase();
-            console.log("Észlelve:", result);
-
             if (result.includes("milán") || result.includes("milan")) {
                 const command = result.replace(/milán|milan/g, "").trim();
                 processCommand(command);
@@ -57,28 +55,27 @@
                     playOnSpotify(song);
                 }
             } else if (cmd.includes("hogy vagy")) {
-                speak("Szuperül vagyok Milán, várom a zenei kéréseidet!");
-            } else if (cmd.includes("idő")) {
-                speak("A pontos idő: " + new Date().toLocaleTimeString('hu-HU'));
+                speak("Szuperül vagyok! Mit hallgatunk?");
             } else {
-                speak("Itt vagyok, Spotify készenlétben!");
+                speak("Figyelek!");
             }
         }
 
         async function playOnSpotify(songName) {
-            status.innerText = "Küldés a Galaxy S8+ -ra...";
+            status.innerText = "Zene indítása...";
             
-            // Spotify kereső link (ez nyitja meg az appot a telefonodon)
-            const spotifyUrl = `spotify:search:${encodeURIComponent(songName)}`;
+            // 1. Megnyitjuk a Spotify-t a kereséssel
+            const spotifyUri = `spotify:search:${encodeURIComponent(songName)}`;
             
-            // Join API hívás a te pontos adataiddal
-            const finalApiUrl = `https://joinjoaomgcd.appspot.com/_ah/api/messaging/v1/sendPush?url=${encodeURIComponent(spotifyUrl)}&text=${encodeURIComponent("Milán indítja: " + songName)}&deviceId=${DEVICE_ID}&apikey=${API_KEY}`;
+            // 2. Küldünk egy Tasker/Join parancsot, ami azt mondja az Androidnak: "Lejátszás"
+            // Ehhez a 'find' és 'app' paramétereket használjuk, hogy kényszerítsük az indítást
+            const finalApiUrl = `https://joinjoaomgcd.appspot.com/_ah/api/messaging/v1/sendPush?url=${encodeURIComponent(spotifyUri)}&text=${encodeURIComponent("play " + songName)}&app=Spotify&deviceId=${DEVICE_ID}&apikey=${API_KEY}`;
 
             try {
                 await fetch(finalApiUrl, { mode: 'no-cors' });
-                speak("Rendben! Indítom a " + songName + " dalt a Spotify-on.");
+                speak("Azonnal indítom a " + songName + " dalt a Spotify-on!");
             } catch (e) {
-                speak("Hiba történt a telefon elérésekor.");
+                speak("Hiba történt az S8-as elérésekor.");
             }
         }
 
@@ -86,7 +83,7 @@
             chat.innerText = text;
             const synth = window.speechSynthesis;
             const utter = new SpeechSynthesisUtterance(text);
-            utter.lang = 'hu-HU';
+            utterance.lang = 'hu-HU';
             ball.classList.add('active');
             utter.onend = () => ball.classList.remove('active');
             synth.speak(utter);
