@@ -8,7 +8,7 @@
         :root { --accent: #f59e0b; --bg: #06040d; }
         body { background: var(--bg); color: white; font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; overflow: hidden; }
         
-        /* Az Arany Gömb */
+        /* Arany Gömb */
         .milan-orb { 
             width: 150px; height: 150px; border-radius: 50%; 
             background: radial-gradient(circle, var(--accent) 0%, #000 90%); 
@@ -22,6 +22,7 @@
         .listening { transform: scale(1.1); box-shadow: 0 0 60px var(--accent); animation: pulse 1s infinite; }
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
 
+        /* Válasz doboz */
         #res-box { 
             margin-top: 30px; padding: 25px; width: 85%; max-width: 600px; 
             background: rgba(255,255,255,0.05); border-radius: 20px; 
@@ -36,10 +37,11 @@
 
     <div class="milan-orb" id="orb">M</div>
     <div id="status">KATTINTS ÉS BESZÉLJ</div>
-    <div id="res-box">Szia Milán! A Groq motor élesítve. Mondj valamit!</div>
+    <div id="res-box">Szia Milán! Beszélj hozzám, a Groq motor készen áll!</div>
 
     <script>
         // --- KONFIGURÁCIÓ ---
+        // Ha ezt GitHub-ra feltöltöd, a GitHub letilthatja a kulcsot!
         const GROQ_KEY = "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"; 
         const JOIN_KEY = "37fb0c375bfc4db18eea3d9148f7200e";
         const DEVICE_ID = "52f9bb814cc24dba8457407666fd1464";
@@ -56,7 +58,7 @@
                 recognition.start();
                 orb.classList.add('listening');
                 statusTxt.innerText = "HALLGATLAK...";
-            } catch(e) { console.log("Már hallgat..."); }
+            } catch(e) { console.log("Újraindítás..."); }
         };
 
         recognition.onresult = async (event) => {
@@ -65,14 +67,14 @@
             orb.classList.remove('listening');
             resBox.innerText = "Gondolkodom...";
 
-            // 1. SPOTIFY VEZÉRLÉS
+            // 1. SPOTIFY FUNKCIÓ
             if (textLower.includes("játszd le") || textLower.includes("indítsd el")) {
                 const song = userSpeech.replace(/játszd le a|indítsd el a|milán/gi, "").trim();
                 const spotifyUri = `spotify:search:${encodeURIComponent(song)}`;
                 const joinUrl = `https://joinjoaomgcd.appspot.com/_ah/api/messaging/v1/sendPush?url=${encodeURIComponent(spotifyUri)}&text=${encodeURIComponent("Play: " + song)}&app=Spotify&deviceId=${DEVICE_ID}&apikey=${JOIN_KEY}`;
                 
                 fetch(joinUrl, { mode: 'no-cors' });
-                speak("Rendben Milán, indítom a dalt: " + song);
+                speak("Rendben Milán, indítom a Spotify-on: " + song);
                 return;
             }
 
@@ -87,7 +89,7 @@
                     body: JSON.stringify({
                         model: "llama3-8b-8192",
                         messages: [
-                            { role: "system", content: "Te Milán okos és barátságos magyar asszisztense vagy. Válaszolj tömören, maximum 2 mondatban." },
+                            { role: "system", content: "Te Milán okos és barátságos magyar asszisztense vagy. Válaszolj tömören, max 2 mondatban." },
                             { role: "user", content: userSpeech }
                         ]
                     })
@@ -95,15 +97,17 @@
 
                 const data = await response.json();
                 
-                if (data.choices && data.choices[0].message) {
+                if (data.error) {
+                    // Itt megmondjuk a pontos hibaüzenetet
+                    resBox.innerText = "Hiba: " + data.error.message;
+                    console.error("Részletek:", data.error);
+                } else if (data.choices && data.choices[0].message) {
                     const reply = data.choices[0].message.content;
                     speak(reply);
-                } else {
-                    resBox.innerText = "Hiba történt a válaszadáskor.";
                 }
 
             } catch (e) {
-                resBox.innerText = "Kapcsolódási hiba történt a Groq-kal.";
+                resBox.innerText = "Kapcsolódási hiba történt.";
                 console.error(e);
             }
             statusTxt.innerText = "KATTINTS ÉS BESZÉLJ";
