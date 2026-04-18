@@ -3,117 +3,84 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Milán AI - Stabil Verzió</title>
+    <title>Milán AI - Final v1</title>
     <style>
-        :root { --accent: #4f46e5; --bg: #050505; --spotify: #1db954; }
-        body { background: var(--bg); color: #f8fafc; font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; overflow: hidden; }
-        .milan-orb { width: 150px; height: 150px; border-radius: 50%; background: radial-gradient(circle, var(--accent) 0%, #000 75%); display: flex; align-items: center; justify-content: center; font-size: 70px; cursor: pointer; transition: 0.5s; box-shadow: 0 0 40px rgba(79, 70, 229, 0.3); border: 2px solid rgba(255,255,255,0.1); user-select: none; }
-        .listening { transform: scale(1.15); box-shadow: 0 0 60px var(--accent); animation: pulse 1s infinite; }
-        .thinking { animation: rotate 2s linear infinite; border-color: var(--spotify); }
-        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
-        @keyframes rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        #response-box { margin-top: 30px; padding: 25px; width: 85%; max-width: 600px; background: rgba(255,255,255,0.03); border-radius: 20px; text-align: center; font-size: 1.2rem; min-height: 80px; border: 1px solid rgba(255,255,255,0.1); backdrop-filter: blur(10px); }
-        #status { margin-top: 15px; color: #4b5563; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; }
+        :root { --accent: #6366f1; --bg: #020617; }
+        body { background: var(--bg); color: white; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+        .orb { width: 140px; height: 140px; border-radius: 50%; background: radial-gradient(circle, var(--accent) 0%, #000 80%); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 60px; transition: 0.3s; box-shadow: 0 0 30px rgba(99, 102, 241, 0.3); border: 2px solid rgba(255,255,255,0.1); }
+        .listening { transform: scale(1.1); box-shadow: 0 0 50px var(--accent); }
+        #res { margin-top: 30px; padding: 20px; width: 80%; max-width: 600px; background: rgba(255,255,255,0.05); border-radius: 15px; text-align: center; font-size: 1.2rem; min-height: 60px; }
     </style>
 </head>
 <body>
 
-    <div class="milan-orb" id="orb">M</div>
-    <div id="status">KATTINTS ÉS BESZÉLJ</div>
-    <div id="response-box">Szia Milán! Kérlek, frissíts egyet az oldalon (CTRL+F5), és próbáljuk újra!</div>
+    <div class="orb" id="orb">M</div>
+    <div id="status" style="margin-top:10px; color:#4b5563;">KATTINTS A BESZÉDHEZ</div>
+    <div id="res">Szia Milán! Frissítettem az elérési utat a legújabbra. Próbáljuk meg!</div>
 
     <script>
-        // --- ADATOK ---
-        const GEMINI_KEY = "AIzaSyBbvSYAX5rTY8asxEB-sMIuPcllsC5kJYk";
+        const API_KEY = "AIzaSyBbvSYAX5rTY8asxEB-sMIuPcllsC5kJYk";
         const JOIN_KEY = "37fb0c375bfc4db18eea3d9148f7200e";
         const DEVICE_ID = "52f9bb814cc24dba8457407666fd1464";
-        
-        // FONTOS: Ez a modellnév a legstabilabb
-        const MODEL_NAME = "gemini-pro"; 
 
         const orb = document.getElementById('orb');
-        const respDisplay = document.getElementById('response-box');
-        const statusText = document.getElementById('status');
+        const resBox = document.getElementById('res');
         
         const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
         recognition.lang = 'hu-HU';
 
         orb.onclick = () => {
-            try { 
-                recognition.start(); 
-                statusText.innerText = "HALLGATLAK...";
-                orb.classList.add('listening');
-            } catch(e) { 
-                recognition.stop();
-                statusText.innerText = "KATTINTS ÚJRA";
-            }
+            recognition.start();
+            orb.classList.add('listening');
+            document.getElementById('status').innerText = "HALLGATLAK...";
         };
 
         recognition.onresult = async (event) => {
-            const userSpeech = event.results[0][0].transcript;
+            const text = event.results[0][0].transcript;
             orb.classList.remove('listening');
-            orb.classList.add('thinking');
-            respDisplay.innerText = "Gondolkodom...";
+            resBox.innerText = "Gondolkodom...";
 
-            if (userSpeech.toLowerCase().includes("játszd le") || userSpeech.toLowerCase().includes("indítsd el")) {
-                const song = userSpeech.toLowerCase().replace(/játszd le a|indítsd el a|milán/g, "").trim();
-                playOnSamsung(song);
+            if (text.toLowerCase().includes("játszd le") || text.toLowerCase().includes("indítsd el")) {
+                play(text.toLowerCase().replace(/játszd le a|indítsd el a|milán/g, "").trim());
                 return;
             }
 
-            const answer = await askGemini(userSpeech);
-            speak(answer);
-        };
-
-        async function askGemini(prompt) {
-            // Itt a fix URL a gemini-pro-val
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent?key=${GEMINI_KEY}`;
+            // FRISSÍTETT URL: v1 verzió és gemini-1.5-flash-latest modell
+            const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash-latest:generateContent?key=${API_KEY}`;
             
             try {
                 const response = await fetch(url, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        contents: [{ parts: [{ text: `Te Milán személyi asszisztense vagy. Válaszolj röviden magyarul: ${prompt}` }] }]
-                    })
+                    body: JSON.stringify({ contents: [{ parts: [{ text: "Válaszolj magyarul, röviden: " + text }] }] })
                 });
-
                 const data = await response.json();
                 
-                if (data.error) {
-                    console.error("DEBUG:", data.error);
-                    return "Hiba: " + data.error.message;
-                }
-
                 if (data.candidates && data.candidates[0].content) {
-                    return data.candidates[0].content.parts[0].text;
+                    const reply = data.candidates[0].content.parts[0].text;
+                    speak(reply);
                 } else {
-                    return "A Gemini nem tudott választ adni. Próbáld másképp!";
+                    resBox.innerText = "Hiba történt a válaszadáskor. Kód: " + (data.error ? data.error.message : "Ismeretlen");
                 }
             } catch (e) {
-                return "Hálózati hiba történt.";
+                resBox.innerText = "Hálózati hiba.";
             }
-        }
-
-        async function playOnSamsung(song) {
-            const spotifyUri = `spotify:search:${encodeURIComponent(song)}`;
-            const joinUrl = `https://joinjoaomgcd.appspot.com/_ah/api/messaging/v1/sendPush?url=${encodeURIComponent(spotifyUri)}&text=${encodeURIComponent("Play: " + song)}&app=Spotify&deviceId=${DEVICE_ID}&apikey=${JOIN_KEY}`;
-            fetch(joinUrl, { mode: 'no-cors' });
-            speak("Rendben Milán, indítom: " + song);
-        }
-
-        function speak(text) {
-            orb.classList.remove('thinking');
-            respDisplay.innerText = text;
-            const utter = new SpeechSynthesisUtterance(text);
-            utter.lang = 'hu-HU';
-            window.speechSynthesis.speak(utter);
-            statusText.innerText = "KATTINTS ÉS BESZÉLJ";
-        }
-
-        recognition.onend = () => {
-            orb.classList.remove('listening');
         };
+
+        function speak(t) {
+            resBox.innerText = t;
+            const u = new SpeechSynthesisUtterance(t);
+            u.lang = 'hu-HU';
+            window.speechSynthesis.speak(u);
+            document.getElementById('status').innerText = "KATTINTS A BESZÉDHEZ";
+        }
+
+        async function play(s) {
+            const uri = `spotify:search:${encodeURIComponent(s)}`;
+            const jUrl = `https://joinjoaomgcd.appspot.com/_ah/api/messaging/v1/sendPush?url=${encodeURIComponent(uri)}&text=${encodeURIComponent("Play: " + s)}&app=Spotify&deviceId=${DEVICE_ID}&apikey=${JOIN_KEY}`;
+            fetch(jUrl, { mode: 'no-cors' });
+            speak("Indítom a Spotify-on: " + s);
+        }
     </script>
 </body>
 </html>
