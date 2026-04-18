@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <title>Milán AI - GitHub Verzió</title>
+    <style>
+        body { background: #0f172a; color: white; font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+        .milan-ball { width: 160px; height: 160px; border-radius: 50%; background: #0ea5e9; display: flex; align-items: center; justify-content: center; font-size: 70px; cursor: pointer; box-shadow: 0 0 30px #0ea5e9; transition: 0.4s; }
+        .active { transform: scale(1.1); box-shadow: 0 0 60px #38bdf8; background: #38bdf8; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }
+        #status { margin-top: 30px; font-size: 1.2rem; color: #94a3b8; text-align: center; }
+        #chat { margin-top: 20px; color: #38bdf8; font-style: italic; text-align: center; max-width: 80%; font-size: 1.3rem; }
+    </style>
+</head>
+<body>
+
+    <div class="milan-ball" id="ball">M</div>
+    <p id="status">Kattints az M-re (GitHub Pages üzemmód)</p>
+    <div id="chat"></div>
+
+    <script>
+        const API_KEY = "AIzaSyARQXqOA6g6I59O8O2Lst3UjH8ymWMjcQI";
+        // A legfrissebb URL, ami HTTPS környezetben működni fog
+        const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
+
+        const ball = document.getElementById('ball');
+        const status = document.getElementById('status');
+        const chat = document.getElementById('chat');
+
+        const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+        recognition.lang = 'hu-HU';
+        recognition.continuous = true;
+
+        ball.onclick = () => {
+            recognition.start();
+            status.innerText = "Hallgatlak, Milán!";
+            ball.innerText = "🎤";
+        };
+
+        recognition.onresult = async (event) => {
+            const text = event.results[event.results.length - 1][0].transcript.toLowerCase();
+            console.log("Hallottam:", text);
+
+            if (text.includes("milán") || text.includes("milan")) {
+                status.innerText = "Milán gondolkodik...";
+                ball.classList.add('active');
+                
+                const question = text.replace(/milán|milan/g, "").trim();
+                
+                if (question.length > 2) {
+                    await hivasGemini(question);
+                } else {
+                    beszelj("Igen, Milán? Hallgatlak!");
+                }
+            }
+        };
+
+        async function hivasGemini(prompt) {
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: `Te Milán vagy, egy magyar AI asszisztens. Válaszolj röviden a gazdádnak, Milánnak: ${prompt}` }] }]
+                    })
+                });
+
+                const data = await response.json();
+                if (data.candidates && data.candidates[0].content) {
+                    beszelj(data.candidates[0].content.parts[0].text);
+                } else {
+                    beszelj("Hiba történt a válaszadás közben.");
+                }
+            } catch (e) {
+                console.error(e);
+                beszelj("Hálózati hiba az API hívásakor.");
+            }
+        }
+
+        function beszelj(szoveg) {
+            chat.innerText = szoveg;
+            const synth = window.speechSynthesis;
+            const utterance = new SpeechSynthesisUtterance(szoveg);
+            utterance.lang = 'hu-HU';
+            
+            utterance.onend = () => {
+                ball.classList.remove('active');
+                status.innerText = "Várom a hívószót...";
+            };
+            synth.speak(utterance);
+        }
+
+        recognition.onend = () => recognition.start();
+    </script>
+</body>
+</html>
