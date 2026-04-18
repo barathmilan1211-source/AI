@@ -2,14 +2,13 @@
 <html lang="hu">
 <head>
     <meta charset="UTF-8">
-    <title>Milán AI - Profi Bemutató</title>
+    <title>Milán AI - Smart Home</title>
     <style>
         body { background: #0f172a; color: white; font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; }
         .milan-ball { width: 180px; height: 180px; border-radius: 50%; background: radial-gradient(circle, #0ea5e9, #0284c7); display: flex; align-items: center; justify-content: center; font-size: 80px; cursor: pointer; box-shadow: 0 0 30px #0ea5e9; transition: 0.4s; }
-        .active { transform: scale(1.15); box-shadow: 0 0 60px #38bdf8; animation: pulse 1.5s infinite; }
-        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }
+        .active { transform: scale(1.1); box-shadow: 0 0 60px #22c55e; background: #22c55e; } /* Zöld fény, ha vezérel valamit */
         #status { margin-top: 30px; font-size: 1.3rem; color: #94a3b8; }
-        #chat { margin-top: 20px; color: #38bdf8; font-style: italic; text-align: center; max-width: 80%; font-size: 1.5rem; min-height: 50px; }
+        #chat { margin-top: 20px; color: #38bdf8; font-style: italic; text-align: center; max-width: 80%; font-size: 1.5rem; }
     </style>
 </head>
 <body>
@@ -19,6 +18,10 @@
     <div id="chat"></div>
 
     <script>
+        // IDE KELL MAJD AZ EVELINK / IFTTT WEBHOOK LINKJE
+        const EVELINK_BE_URL = "https://maker.ifttt.com/trigger/lampa_be/with/key/SAJAT_KULCSOD";
+        const EVELINK_KI_URL = "https://maker.ifttt.com/trigger/lampa_ki/with/key/SAJAT_KULCSOD";
+
         const ball = document.getElementById('ball');
         const status = document.getElementById('status');
         const chat = document.getElementById('chat');
@@ -28,53 +31,42 @@
         recognition.continuous = true;
 
         ball.onclick = () => {
-            try {
-                recognition.start();
-                status.innerText = "Hallgatlak, Milán!";
-                ball.innerText = "🎤";
-            } catch(e) {}
+            recognition.start();
+            status.innerText = "Parancsolj, Milán!";
         };
 
         recognition.onresult = (event) => {
             const text = event.results[event.results.length - 1][0].transcript.toLowerCase();
-            console.log("Bevitel:", text);
+            console.log("Parancs:", text);
 
             if (text.includes("milán") || text.includes("milan")) {
-                const question = text.replace(/milán|milan/g, "").trim();
-                feldolgozas(question);
+                const command = text.replace(/milán|milan/g, "").trim();
+                okosOtthonVezerles(command);
             }
         };
 
-        function feldolgozas(mondat) {
-            let v = "Érdekes kérdés! Ezt még tanulom, de az időt és a Windowst már vágom!";
+        async function okosOtthonVezerles(parancs) {
+            let valasz = "Ezt a parancsot nem ismerem.";
 
-            // --- PROFESSZIONÁLIS LOGIKAI TÁBLA ---
-            if (mondat.includes("hallasz") || mondat.includes("itt vagy")) {
-                v = "Természetesen hallalak, Milán! Itt vagyok és figyelek rád.";
+            // LÁMPA BEKAPCSOLÁSA
+            if (parancs.includes("kapcsold be a lámpát") || parancs.includes("lámpát be")) {
+                valasz = "Értettem, Milán! Kapcsolom a lámpát.";
+                beszelj(valasz);
+                await fetch(EVELINK_BE_URL, { mode: 'no-cors' }); // Jel küldése az Evelinknek
             } 
-            else if (mondat.includes("windows")) {
-                v = "A legújabb asztali verzió a Windows 11. Te szereted az új frissítéseket?";
+            // LÁMPA KIKAPCSOLÁSA
+            else if (parancs.includes("kapcsold ki a lámpát") || parancs.includes("lámpát ki")) {
+                valasz = "Rendben, lekapcsolom a világítást.";
+                beszelj(valasz);
+                await fetch(EVELINK_KI_URL, { mode: 'no-cors' });
             }
-            else if (mondat.includes("idő") || mondat.includes("óra")) {
-                v = "A pontos idő jelenleg " + new Date().toLocaleTimeString('hu-HU', {hour: '2-digit', minute: '2-digit'}) + ".";
+            // EGYÉB KÉRDÉSEK (Idő, Vicc, stb.)
+            else {
+                if (parancs.includes("idő")) valasz = "A pontos idő: " + new Date().toLocaleTimeString('hu-HU');
+                else if (parancs.includes("vicc")) valasz = "Miért nézi a programozó a tejesdobozt? Mert rá van írva, hogy nyitható.";
+                else valasz = "Itt vagyok, hallgatlak!";
+                beszelj(valasz);
             }
-            else if (mondat.includes("hogy vagy")) {
-                v = "Köszönöm, remekül vagyok! Egy MI-nek sosem fáj a feje a programozás miatt.";
-            }
-            else if (mondat.includes("vicc")) {
-                v = "Miért nem beszélnek a programozók a tengerparton? Mert mindenki a saját kódjával van elfoglalva!";
-            }
-            else if (mondat.includes("ki vagy") || mondat.includes("mi vagy")) {
-                v = "Én a te saját fejlesztésű mesterséges intelligenciád vagyok, Milán!";
-            }
-            else if (mondat.includes("szia") || mondat.includes("üdv")) {
-                v = "Szia Milán! Miben segíthetek ma?";
-            }
-            else if (mondat.includes("köszönöm") || mondat.includes("köszi")) {
-                v = "Igazán nincs mit! Mindig örülök, ha segíthetek a gazdámnak.";
-            }
-
-            beszelj(v);
         }
 
         function beszelj(szoveg) {
@@ -82,12 +74,8 @@
             const synth = window.speechSynthesis;
             const utterance = new SpeechSynthesisUtterance(szoveg);
             utterance.lang = 'hu-HU';
-            
             ball.classList.add('active');
-            utterance.onend = () => {
-                ball.classList.remove('active');
-                status.innerText = "Várom a hívószót (Hé Milán)...";
-            };
+            utterance.onend = () => ball.classList.remove('active');
             synth.speak(utterance);
         }
 
