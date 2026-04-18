@@ -3,26 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Milán AI - Spotify Control</title>
+    <title>Milán AI - Spotify Master</title>
     <style>
-        body { background: #0f172a; color: white; font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; overflow: hidden; }
-        .milan-ball { width: 170px; height: 170px; border-radius: 50%; background: linear-gradient(135deg, #1DB954 0%, #191414 100%); display: flex; align-items: center; justify-content: center; font-size: 70px; cursor: pointer; box-shadow: 0 0 30px rgba(29, 185, 84, 0.4); transition: 0.4s; user-select: none; }
-        .active { transform: scale(1.1); box-shadow: 0 0 60px #1DB954; background: #1DB954; animation: pulse 1.5s infinite; }
-        @keyframes pulse { 0% { transform: scale(1.1); } 50% { transform: scale(1.15); } 100% { transform: scale(1.1); } }
-        #status { margin-top: 30px; font-size: 1.2rem; color: #94a3b8; text-align: center; }
-        #chat { margin-top: 20px; color: #1DB954; font-style: italic; text-align: center; max-width: 85%; font-size: 1.3rem; min-height: 60px; }
+        body { background: #09090b; color: white; font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; overflow: hidden; }
+        .milan-ball { width: 160px; height: 160px; border-radius: 50%; background: radial-gradient(circle, #1db954, #121212); display: flex; align-items: center; justify-content: center; font-size: 70px; cursor: pointer; box-shadow: 0 0 40px rgba(29, 185, 84, 0.3); transition: 0.5s; user-select: none; border: 4px solid #1db954; }
+        .active { transform: scale(1.1); box-shadow: 0 0 70px #1db954; background: #1db954; animation: pulse 1.2s infinite; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }
+        #status { margin-top: 25px; font-size: 1.1rem; color: #a1a1aa; text-transform: uppercase; letter-spacing: 2px; }
+        #chat { margin-top: 15px; color: #1db954; font-weight: bold; text-align: center; max-width: 80%; font-size: 1.4rem; min-height: 50px; text-shadow: 0 0 10px rgba(29, 185, 84, 0.5); }
     </style>
 </head>
 <body>
 
     <div class="milan-ball" id="ball">M</div>
-    <p id="status">Kattints az M-re!</p>
+    <p id="status">Kattints az M gombra!</p>
     <div id="chat"></div>
 
     <script>
-        // --- JOIN API ADATOK ---
-        const JOIN_API_KEY = "37fb0c375bfc4db18eea3d9148f7200e";
-        const JOIN_DEVICE_ID = "group.all"; 
+        // --- PONTOS JOIN ADATOK ---
+        const API_KEY = "37fb0c375bfc4db18eea3d9148f7200e";
+        const DEVICE_ID = "52f9bb814cc24dba8457407666fd1464";
 
         const ball = document.getElementById('ball');
         const status = document.getElementById('status');
@@ -35,55 +35,61 @@
         ball.onclick = () => {
             try {
                 recognition.start();
-                status.innerText = "Mondd a zenét, Milán!";
-                ball.innerText = "🎧";
+                status.innerText = "Figyelek rád, Milán!";
+                ball.innerText = "🎤";
             } catch(e) {}
         };
 
         recognition.onresult = (event) => {
-            const text = event.results[event.results.length - 1][0].transcript.toLowerCase();
-            if (text.includes("milán") || text.includes("milan")) {
-                const parancs = text.replace(/milán|milan/g, "").trim();
-                feldolgozas(parancs);
+            const result = event.results[event.results.length - 1][0].transcript.toLowerCase();
+            console.log("Észlelve:", result);
+
+            if (result.includes("milán") || result.includes("milan")) {
+                const command = result.replace(/milán|milan/g, "").trim();
+                processCommand(command);
             }
         };
 
-        function feldolgozas(mondat) {
-            if (mondat.includes("játszd le a") || mondat.includes("indítsd el a")) {
-                const zene = mondat.replace(/játszd le a|indítsd el a/g, "").trim();
-                if (zene.length > 1) {
-                    inditsdSpotify(zene);
+        function processCommand(cmd) {
+            if (cmd.includes("játszd le a") || cmd.includes("indítsd el a")) {
+                const song = cmd.replace(/játszd le a|indítsd el a/g, "").trim();
+                if (song.length > 0) {
+                    playOnSpotify(song);
                 }
+            } else if (cmd.includes("hogy vagy")) {
+                speak("Szuperül vagyok Milán, várom a zenei kéréseidet!");
+            } else if (cmd.includes("idő")) {
+                speak("A pontos idő: " + new Date().toLocaleTimeString('hu-HU'));
             } else {
-                beszelj("Itt vagyok, Spotify készenlétben!");
+                speak("Itt vagyok, Spotify készenlétben!");
             }
         }
 
-        async function inditsdSpotify(zeneCim) {
-            status.innerText = "Spotify parancs küldése...";
+        async function playOnSpotify(songName) {
+            status.innerText = "Küldés a Galaxy S8+ -ra...";
             
-            // Ez a Spotify speciális kereső linkje (Deep Link)
-            const spotifyLink = `spotify:search:${encodeURIComponent(zeneCim)}`;
+            // Spotify kereső link (ez nyitja meg az appot a telefonodon)
+            const spotifyUrl = `spotify:search:${encodeURIComponent(songName)}`;
             
-            // Join API hívás
-            const apiUrl = `https://joinjoaomgcd.appspot.com/_ah/api/messaging/v1/sendPush?url=${encodeURIComponent(spotifyLink)}&text=${encodeURIComponent("Spotify indítása: " + zeneCim)}&deviceId=${JOIN_DEVICE_ID}&apikey=${JOIN_API_KEY}`;
+            // Join API hívás a te pontos adataiddal
+            const finalApiUrl = `https://joinjoaomgcd.appspot.com/_ah/api/messaging/v1/sendPush?url=${encodeURIComponent(spotifyUrl)}&text=${encodeURIComponent("Milán indítja: " + songName)}&deviceId=${DEVICE_ID}&apikey=${API_KEY}`;
 
             try {
-                await fetch(apiUrl, { mode: 'no-cors' }); 
-                beszelj("Rendben! Indítom a " + zeneCim + " dalt a Spotify-on.");
+                await fetch(finalApiUrl, { mode: 'no-cors' });
+                speak("Rendben! Indítom a " + songName + " dalt a Spotify-on.");
             } catch (e) {
-                beszelj("Hiba történt a küldés közben.");
+                speak("Hiba történt a telefon elérésekor.");
             }
         }
 
-        function beszelj(szoveg) {
-            chat.innerText = szoveg;
+        function speak(text) {
+            chat.innerText = text;
             const synth = window.speechSynthesis;
-            const utterance = new SpeechSynthesisUtterance(szoveg);
-            utterance.lang = 'hu-HU';
+            const utter = new SpeechSynthesisUtterance(text);
+            utter.lang = 'hu-HU';
             ball.classList.add('active');
-            utterance.onend = () => ball.classList.remove('active');
-            synth.speak(utterance);
+            utter.onend = () => ball.classList.remove('active');
+            synth.speak(utter);
         }
 
         recognition.onend = () => { try { recognition.start(); } catch(e) {} };
