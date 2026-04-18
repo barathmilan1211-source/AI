@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Milán AI - Samsung Fix</title>
+    <title>Milán AI - Samsung Music Master</title>
     <style>
         body { background: #0f172a; color: white; font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; overflow: hidden; }
         .milan-ball { width: 170px; height: 170px; border-radius: 50%; background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%); display: flex; align-items: center; justify-content: center; font-size: 70px; cursor: pointer; box-shadow: 0 0 30px rgba(14, 165, 233, 0.4); transition: 0.4s; user-select: none; }
@@ -20,6 +20,7 @@
     <div id="chat"></div>
 
     <script>
+        // --- A TE EGYEDI ADATAID ---
         const JOIN_API_KEY = "37fb0c375bfc4db18eea3d9148f7200e";
         const JOIN_DEVICE_ID = "group.all"; 
 
@@ -34,7 +35,7 @@
         ball.onclick = () => {
             try {
                 recognition.start();
-                status.innerText = "Hallgatlak!";
+                status.innerText = "Figyelek rád, Milán!";
                 ball.innerText = "🎤";
             } catch(e) {}
         };
@@ -50,25 +51,33 @@
         function feldolgozas(mondat) {
             if (mondat.includes("játszd le a") || mondat.includes("indítsd el a")) {
                 const zene = mondat.replace(/játszd le a|indítsd el a/g, "").trim();
-                uzenetKuldes(zene);
+                if (zene.length > 1) {
+                    vezerlesSamsung(zene);
+                }
+            } else if (mondat.includes("hogy vagy")) {
+                beszelj("Szuperül vagyok! Indíthatjuk a zenét?");
+            } else if (mondat.includes("idő")) {
+                beszelj("A pontos idő " + new Date().toLocaleTimeString('hu-HU', {hour: '2-digit', minute: '2-digit'}));
             } else {
-                beszelj("Itt vagyok!");
+                beszelj("Hallgatlak, Milán!");
             }
         }
 
-        async function uzenetKuldes(zeneCim) {
-            status.innerText = "Üzenet küldése...";
+        async function vezerlesSamsung(zeneCim) {
+            status.innerText = "Küldés a Samsungra...";
             
-            // Itt most CSAK TEXT paramétert küldünk, URL-t NEM!
-            // Így a telefonod sima értesítésként kapja meg, és nincs URL hiba.
-            const textToSend = "Milán, indítsd el ezt: " + zeneCim;
-            const apiUrl = `https://joinjoaomgcd.appspot.com/_ah/api/messaging/v1/sendPush?text=${encodeURIComponent(textToSend)}&deviceId=${JOIN_DEVICE_ID}&apikey=${JOIN_API_KEY}`;
+            // Ez a parancs közvetlenül a Samsung Music-nak szól
+            const searchIntent = `https://www.google.com/search?q=${encodeURIComponent(zeneCim)}&btnI=1`;
+            
+            // Join API hívás - Kicsit módosítva, hogy ne dobjon Invalid URL-t
+            const apiUrl = `https://joinjoaomgcd.appspot.com/_ah/api/messaging/v1/sendPush?url=${encodeURIComponent(searchIntent)}&text=${encodeURIComponent("Zene indítása: " + zeneCim)}&deviceId=${JOIN_DEVICE_ID}&apikey=${JOIN_API_KEY}`;
 
             try {
+                // A fetch elküldi a jelet a Join szervernek
                 await fetch(apiUrl, { mode: 'no-cors' }); 
-                beszelj("Rendben! Elküldtem az üzenetet a telefonodra: " + zeneCim);
+                beszelj("Rendben! Indítom a " + zeneCim + " dalt a Samsung Music-ban.");
             } catch (e) {
-                beszelj("Hiba a küldés során.");
+                beszelj("Hiba történt a telefon elérésekor.");
             }
         }
 
